@@ -3,8 +3,8 @@
 "All"="All photos";
 "Video"="Video";
 "ok"="OK";
-"maxSelectAlert"="You can only select %d images";
-"maxSizeAlert"="You can only select images up to %.02f mb in size";
+"maxSelectAlert"="You can only select %d media";
+"maxSizeAlert"="You can only select media up to %.02f mb in size";
 "Unable to access album" = "Unable to access album";
 "Please allow to access your album" = "Please allow to access your album in \"Settings -> Privacy -> Album\"";
 "Setting" = "Setting";
