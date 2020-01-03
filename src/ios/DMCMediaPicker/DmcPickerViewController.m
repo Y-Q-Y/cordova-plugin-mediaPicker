@@ -29,7 +29,7 @@
 - (void)viewDidLoad {
     //init config
     self.maxSelectCount=self.maxSelectCount>0?self.maxSelectCount:15;
-    self.maxSelectSize=self.maxSelectSize>0?self.maxSelectSize:1048576;
+    self.maxSelectSize=self.maxSelectSize>0?self.maxSelectSize:188743680;
     self.selectMode=self.selectMode>0?self.selectMode:101;
     //config end
     
@@ -436,8 +436,8 @@
 -(long) assetFileSize:(PHAsset *)asset
 {
 	__block long imageSize = 0;
-
 	if(asset.mediaType == PHAssetMediaTypeVideo) {
+        dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 		PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
 		options.version = PHVideoRequestOptionsVersionOriginal;
 
@@ -447,10 +447,11 @@
 				NSNumber *size;
 
 				[urlAsset.URL getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
-				NSLog(@"%lu", (unsigned long)size);
-				imageSize = (unsigned long)size;
+                imageSize = [size longValue];
+                dispatch_semaphore_signal(semaphore);
 			}
 		}];
+        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 	} else {
 		// Fetch image data to retrieve file size and path
 		PHImageRequestOptions * options = [[PHImageRequestOptions alloc] init];
@@ -459,7 +460,6 @@
 		options.synchronous = YES; //Set this to NO if is needed
 
     	[[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData * _Nullable imageData, NSString * _Nullable dataUTI, UIImageOrientation orientation, NSDictionary * _Nullable info) {
-		    NSLog(@"%lu", (unsigned long)imageData.length);
 		    imageSize = (unsigned long)imageData.length;
 		}];
 	}
