@@ -252,6 +252,7 @@
         Boolean keep = !([_fileExtension count]>0);
         
         for (NSString* type in _fileExtension) {
+            type = [type uppercaseString];
             if([fileExtension isEqualToString:type]){
                 keep = true;
             }
@@ -263,27 +264,6 @@
     }
     return result;
 }
-
--(NSMutableArray*)filterMediaByType:(NSMutableArray*) group{
-    NSMutableArray *result = [[NSMutableArray alloc]init];
-    for (int i = 0; i<group.count; i++) {
-        PHAsset* asset = [group objectAtIndex:i];
-        PHAssetMediaSubtype type = [asset mediaSubtypes];
-        
-        Boolean keep = !([_fileExtension count]>0);
-        for (int j = 0; j < _fileExtension.count; j++) {
-            PHAssetMediaSubtype filterType = [[_fileExtension objectAtIndex:j] intValue];
-            if (type == filterType) {
-                keep = true;
-            }
-        }
-        if (keep) {
-            [result addObject:asset];
-        }
-    }
-    return result;
-}
-
 
 -(void)show:(NSInteger) index {
     if([dataSource count]>0){
