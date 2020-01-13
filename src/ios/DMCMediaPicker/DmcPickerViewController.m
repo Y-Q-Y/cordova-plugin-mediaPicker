@@ -270,9 +270,9 @@
         PHAsset* asset = [group objectAtIndex:i];
         PHAssetMediaSubtype type = [asset mediaSubtypes];
         
-        Boolean keep = !([iosFileTypes count]>0);
-        for (int j = 0; j < iosFileTypes.count; j++) {
-            PHAssetMediaSubtype filterType = [[iosFileTypes objectAtIndex:j] intValue];
+        Boolean keep = !([_fileExtension count]>0);
+        for (int j = 0; j < _fileExtension.count; j++) {
+            PHAssetMediaSubtype filterType = [[_fileExtension objectAtIndex:j] intValue];
             if (type == filterType) {
                 keep = true;
             }
