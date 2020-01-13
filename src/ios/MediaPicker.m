@@ -35,6 +35,17 @@
     }@catch (NSException *exception) {
         NSLog(@"Exception: %@", exception);
     }
+    @try{
+        NSDictionary *fileTypes = [options valueForKey:@"fileExtensions"];
+        NSMutableArray *mutableArray = [[NSMutableArray alloc]init];
+        for (NSString *value in fileTypes) {
+            [mutableArray addObject: value];
+        }
+        dmc.fileExtension = mutableArray;
+        
+    }@catch(NSException *exception){
+        NSLog(@"Exception: %@", exception);
+    }
     dmc.modalPresentationStyle = 0;
     if (@available(iOS 13.0, *)) {
         dmc.modalInPresentation = true;
@@ -129,53 +140,36 @@
 
 
 -(void)videoToSandbox:(PHAsset *)asset dmcPickerPath:(NSString*)dmcPickerPath aListArray:(NSMutableArray*)aListArray selectArray:(NSMutableArray*)selectArray index:(int)index{
-    PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
-    options.networkAccessAllowed = YES;
-    options.resizeMode = PHImageRequestOptionsResizeModeFast;
-    options.progressHandler = ^(double progress, NSError *error, BOOL *stop, NSDictionary *info) {
-        NSString *compressCompletedjs = [NSString stringWithFormat:@"MediaPicker.icloudDownloadEvent(%f,%i)", progress,index];
-        [self.commandDelegate evalJs:compressCompletedjs];
-    };
-    [[PHImageManager defaultManager] requestAVAssetForVideo:asset options:options resultHandler:^(AVAsset *avsset, AVAudioMix *audioMix, NSDictionary *info) {
-        if ([avsset isKindOfClass:[AVURLAsset class]]) {
-            NSString *filename = [asset valueForKey:@"filename"];
-            AVURLAsset* urlAsset = (AVURLAsset*)avsset;
-            
-            NSString *fullpath=[NSString stringWithFormat:@"%@/%@", dmcPickerPath,filename];
-            NSLog(@"%@", urlAsset.URL);
-            NSData *data = [NSData dataWithContentsOfURL:urlAsset.URL options:NSDataReadingUncached error:nil];
+    PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
+    options.version = PHVideoRequestOptionsVersionOriginal;
 
-            NSNumber* size=[NSNumber numberWithLong: data.length];
-            NSError *error = nil;
-            if (![data writeToFile:fullpath options:NSAtomicWrite error:&error]) {
-                NSLog(@"%@", [error localizedDescription]);
-                [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[error localizedDescription]] callbackId:callbackId];
-            } else {
-                
-                NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:fullpath,@"path",[[NSURL fileURLWithPath:fullpath] absoluteString],@"uri",size,@"size",@"video",@"mediaType" ,[NSNumber numberWithInt:index],@"index", nil];
-                [aListArray addObject:dict];
-                if([aListArray count]==[selectArray count]){
-                    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:aListArray] callbackId:callbackId];
-                }
-            }
-           
-        }
-    }];
-
+    NSString *filename = [asset valueForKey:@"filename"];
+                       
+    NSString *fullpath=[NSString stringWithFormat:@"%@/%@", dmcPickerPath,filename];
+    
+    NSNumber *size = [self getVideoAssetSize:asset];
+                    
+    NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:fullpath,@"path",[[NSURL fileURLWithPath:fullpath] absoluteString],@"uri",size,@"size",@"video",@"mediaType" ,[NSNumber numberWithInt:index],@"index", nil];
+    [aListArray addObject:dict];
+    if([aListArray count]==[selectArray count]){
+        [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:aListArray] callbackId:callbackId];
+    }
 }
 
 -(void)videoToSandboxCompress:(PHAsset *)asset dmcPickerPath:(NSString*)dmcPickerPath aListArray:(NSMutableArray*)aListArray selectArray:(NSMutableArray*)selectArray index:(int)index{
     NSString *compressStartjs = [NSString stringWithFormat:@"MediaPicker.compressEvent('%@',%i)", @"start",index];
+    
+    NSString *extension = [[asset valueForKey:@"filename"] pathExtension];
+    NSString *fullpath=[NSString stringWithFormat:@"%@/%@.%@", dmcPickerPath,[[NSProcessInfo processInfo] globallyUniqueString],extension];
+    
     [self.commandDelegate evalJs:compressStartjs];
     [[PHImageManager defaultManager] requestExportSessionForVideo:asset options:nil exportPreset:AVAssetExportPresetMediumQuality resultHandler:^(AVAssetExportSession *exportSession, NSDictionary *info) {
         
-
-        NSString *fullpath=[NSString stringWithFormat:@"%@/%@.%@", dmcPickerPath,[[NSProcessInfo processInfo] globallyUniqueString], @"mp4"];
         NSURL *outputURL = [NSURL fileURLWithPath:fullpath];
         
         NSLog(@"this is the final path %@",outputURL);
         
-        exportSession.outputFileType=AVFileTypeMPEG4;
+        exportSession.outputFileType=[self getAVTypeByExtension:extension];
         
         exportSession.outputURL=outputURL;
 
@@ -191,7 +185,8 @@
                 NSLog(@"completed!");
                 NSString *compressCompletedjs = [NSString stringWithFormat:@"MediaPicker.compressEvent('%@',%i)", @"completed",index];
                 [self.commandDelegate evalJs:compressCompletedjs];
-                NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:fullpath,@"path",[[NSURL fileURLWithPath:fullpath] absoluteString],@"uri",@"video",@"mediaType" ,[NSNumber numberWithInt:index],@"index", nil];
+                
+                NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:fullpath,@"path",[[NSURL fileURLWithPath:fullpath] absoluteString],@"uri",@"video",@"mediaType" ,[self getVideoAssetSize:asset],@"size",[NSNumber numberWithInt:index],@"index", nil];
                 [aListArray addObject:dict];
                 if([aListArray count]==[selectArray count]){
                     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:aListArray] callbackId:callbackId];
@@ -201,6 +196,65 @@
         }];
         
     }];
+}
+
+-(NSNumber*)getVideoAssetSize:(PHAsset*)asset{
+    
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    
+    PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
+    options.version = PHVideoRequestOptionsVersionOriginal;
+
+    __block NSNumber *finalSize;
+
+    [[PHImageManager defaultManager] requestAVAssetForVideo:asset options:options resultHandler:^(AVAsset *asset, AVAudioMix *audioMix, NSDictionary *info) {
+        if([asset isKindOfClass:[AVURLAsset class]]) {
+                        
+            AVURLAsset* urlAsset = (AVURLAsset*)asset;
+            
+            NSNumber *size;
+
+            [urlAsset.URL getResourceValue:&size forKey:NSURLFileSizeKey error:nil];
+            
+            finalSize = size;
+            
+            dispatch_semaphore_signal(semaphore);
+        }
+    }];
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    return finalSize;
+}
+
+-(NSString*)getAVTypeByExtension:(NSString*)ext{
+    
+    NSString* result = [[NSString alloc] init];
+    
+    ext = [ext uppercaseString];
+    
+    if ([ext isEqualToString:@"3GP"] || [ext isEqualToString:@"3GPP"] || [ext isEqualToString:@"SDV"]) {
+        result = AVFileType3GPP;
+    }else if ([ext isEqualToString:@"3GP2"] || [ext isEqualToString:@"3G2"]) {
+        result = AVFileType3GPP2;
+    }else if ([ext isEqualToString:@"MP4"]) {
+        result = AVFileTypeMPEG4;
+    }else if ([ext isEqualToString:@"M4V"]) {
+        result = AVFileTypeAppleM4V;
+    }else if ([ext isEqualToString:@"MOV"] || [ext isEqualToString:@"QT"]) {
+        result = AVFileTypeQuickTimeMovie;
+    }else if (@available(iOS 11.0,*)) {
+        if ([ext isEqualToString:@"JPEG"] || [ext isEqualToString:@"JPG"]) {
+            result = AVFileTypeJPEG;
+        }else if ([ext isEqualToString:@"TIFF"] || [ext isEqualToString:@"TIF"]) {
+            result = AVFileTypeTIFF;
+        }else if ([ext isEqualToString:@"AVCI"]) {
+            result = AVFileTypeAVCI;
+        }else if ([ext isEqualToString:@"HEIC"]) {
+            result = AVFileTypeHEIC;
+        }else if ([ext isEqualToString:@"HEIF"]) {
+            result = AVFileTypeHEIF;
+        }
+    }
+    return result;
 }
 
 

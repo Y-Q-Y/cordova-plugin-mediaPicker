@@ -31,6 +31,9 @@
     self.maxSelectCount=self.maxSelectCount>0?self.maxSelectCount:15;
     self.maxSelectSize=self.maxSelectSize>0?self.maxSelectSize:188743680;
     self.selectMode=self.selectMode>0?self.selectMode:101;
+    
+    self.fileExtension = self.fileExtension?self.fileExtension:[[NSMutableArray alloc] init];
+    
     //config end
     
     [super viewDidLoad];
@@ -171,16 +174,16 @@
                 [self presentViewController:alert animated:YES completion:nil];
             }else {
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [self getAlassetData];
+                    [self getAllassetData];
                 });
             }
         }];
     }else {
-        [self getAlassetData];
+        [self getAllassetData];
     }
 }
     
--(void) getAlassetData{
+-(void) getAllassetData{
     
     selectArray=[[NSMutableArray alloc] init];
     albumsTitlelist=[[NSMutableArray alloc] init];
@@ -218,10 +221,15 @@
             if (collection.assetCollectionSubtype == PHAssetCollectionSubtypeSmartAlbumUserLibrary) {
                 defaultSelection = i;
             }
+            
             PHFetchResult *group = [PHAsset fetchAssetsInAssetCollection:collection options:options];
+            NSMutableArray *filteredGroup;
             if([group count]>0){
-                [albumsTitlelist addObject:collection.localizedTitle];
-                [dataSource addObject:group];
+                filteredGroup = [self filterMediaByExtensions:group];
+                if ([filteredGroup count]>0) {
+                    [albumsTitlelist addObject:collection.localizedTitle];
+                    [dataSource addObject:filteredGroup];
+                }
                 i++;
             }
         }
@@ -230,6 +238,52 @@
     _manager = [PHImageManager defaultManager];
     [self show: defaultSelection];
 }
+
+-(NSMutableArray*)filterMediaByExtensions:(PHFetchResult*) group{
+    NSMutableArray *result = [[NSMutableArray alloc]init];
+    for (int i = 0; i<group.count; i++) {
+        PHAsset* asset = [group objectAtIndex:i];
+        
+        NSString *fileName =[asset valueForKey:@"filename"];
+        NSString * fileExtension = [fileName pathExtension];
+        
+        fileExtension = [fileExtension uppercaseString];
+        
+        Boolean keep = !([_fileExtension count]>0);
+        
+        for (NSString* type in _fileExtension) {
+            if([fileExtension isEqualToString:type]){
+                keep = true;
+            }
+        }
+        if (keep) {
+            [result addObject:asset];
+        }
+        
+    }
+    return result;
+}
+
+-(NSMutableArray*)filterMediaByType:(NSMutableArray*) group{
+    NSMutableArray *result = [[NSMutableArray alloc]init];
+    for (int i = 0; i<group.count; i++) {
+        PHAsset* asset = [group objectAtIndex:i];
+        PHAssetMediaSubtype type = [asset mediaSubtypes];
+        
+        Boolean keep = !([iosFileTypes count]>0);
+        for (int j = 0; j < iosFileTypes.count; j++) {
+            PHAssetMediaSubtype filterType = [[iosFileTypes objectAtIndex:j] intValue];
+            if (type == filterType) {
+                keep = true;
+            }
+        }
+        if (keep) {
+            [result addObject:asset];
+        }
+    }
+    return result;
+}
+
 
 -(void)show:(NSInteger) index {
     if([dataSource count]>0){
