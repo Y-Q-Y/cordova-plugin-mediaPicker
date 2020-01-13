@@ -251,7 +251,7 @@
         
         Boolean keep = !([_fileExtension count]>0);
         
-        for (NSString* type in _fileExtension) {
+        for (__strong NSString* type in _fileExtension) {
             type = [type uppercaseString];
             if([fileExtension isEqualToString:type]){
                 keep = true;
