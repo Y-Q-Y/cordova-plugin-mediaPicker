@@ -19,7 +19,7 @@
     </config-file>
 
     <hook type="after_plugin_add" src="hooks/manifest-legacy-storage.js" />
-    <framework type="gradleReference" custom="true" src="src/android/Library/build-library.gradler"/>
+    <framework type="gradleReference" custom="true" src="src/android/Library/build-library.gradle"/>
 
     <source-file src="src/android/MediaPicker.java" target-dir="src/com/dmc/mediaPickerPlugin"/>
     <source-file src="src/android/FileHelper.java" target-dir="src/com/dmc/mediaPickerPlugin"/>
