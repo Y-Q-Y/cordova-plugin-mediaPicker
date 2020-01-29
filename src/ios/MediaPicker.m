@@ -149,7 +149,9 @@
     
     NSNumber *size = [self getVideoAssetSize:asset];
                     
-    NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:fullpath,@"path",[[NSURL fileURLWithPath:fullpath] absoluteString],@"uri",size,@"size",@"video",@"mediaType" ,[NSNumber numberWithInt:index],@"index", nil];
+    NSString *path = [self getVideoAssetPath:asset];
+                    
+    NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:path,@"path",[[NSURL fileURLWithPath:path] absoluteString],@"uri",size,@"size",@"video",@"mediaType" ,[NSNumber numberWithInt:index],@"index", nil];
     [aListArray addObject:dict];
     if([aListArray count]==[selectArray count]){
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:aListArray] callbackId:callbackId];
@@ -196,6 +198,33 @@
         }];
         
     }];
+}
+
+-(NSString*)getVideoAssetPath:(PHAsset*)asset{
+    
+    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+    
+    PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
+    options.version = PHVideoRequestOptionsVersionOriginal;
+
+    __block NSString *finalPath;
+
+    [[PHImageManager defaultManager] requestAVAssetForVideo:asset options:options resultHandler:^(AVAsset *asset, AVAudioMix *audioMix, NSDictionary *info) {
+        if([asset isKindOfClass:[AVURLAsset class]]) {
+                        
+            AVURLAsset* urlAsset = (AVURLAsset*)asset;
+            
+            NSString *path;
+
+            [urlAsset.URL getResourceValue:&path forKey:NSURLPathKey error:nil];
+            
+            finalPath = path;
+            
+            dispatch_semaphore_signal(semaphore);
+        }
+    }];
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    return finalPath;
 }
 
 -(NSNumber*)getVideoAssetSize:(PHAsset*)asset{
