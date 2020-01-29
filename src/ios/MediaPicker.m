@@ -149,7 +149,7 @@
     
     NSNumber *size = [self getVideoAssetSize:asset];
                     
-    NSString path = [self getVideoAssetPath:asset];
+    NSString *path = [self getVideoAssetPath:asset];
                     
     NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:path,@"path",[[NSURL fileURLWithPath:path] absoluteString],@"uri",size,@"size",@"video",@"mediaType" ,[NSNumber numberWithInt:index],@"index", nil];
     [aListArray addObject:dict];
