@@ -5,6 +5,7 @@
 @interface MediaPicker : CDVPlugin <DmcPickerDelegate>{
   // Member variables go here.
     NSString* callbackId;
+    float compression;
 }
 
 - (void)getMedias:(CDVInvokedUrlCommand*)command;
@@ -20,6 +21,12 @@
     callbackId=command.callbackId;
     NSDictionary *options = [command.arguments objectAtIndex: 0];
     DmcPickerViewController * dmc=[[DmcPickerViewController alloc] init];
+    @try{
+        compression = [[options objectForKey:@"compression"]floatValue];
+    }@catch (NSException *exception) {
+        compression = 0.7;
+        NSLog(@"Exception: %@", exception);
+    }
     @try{
         dmc.selectMode=[[options objectForKey:@"selectMode"]integerValue];
     }@catch (NSException *exception) {
@@ -96,16 +103,26 @@
     };
     [[PHImageManager defaultManager] requestImageDataForAsset:asset  options:options resultHandler:^(NSData * _Nullable imageData, NSString * _Nullable dataUTI, UIImageOrientation orientation, NSDictionary * _Nullable info) {
         if(imageData != nil) {
-            NSString *filename=[asset valueForKey:@"filename"];
-            NSString *fullpath=[NSString stringWithFormat:@"%@/%@%@", dmcPickerPath,[[NSProcessInfo processInfo] globallyUniqueString], filename];
-            NSNumber *size=[NSNumber numberWithLong:imageData.length];
+            NSString *extension = [[asset valueForKey:@"filename"] pathExtension];
+                        
+            NSData *newImageData;
+            NSString *imageType = [asset valueForKey: @"uniformTypeIdentifier"];
+            if ([imageType isEqualToString:@"public.heic"] || [imageType isEqualToString:@"public.heif"] ) {
+                UIImage *imageUI = [UIImage imageWithData:imageData];
+                newImageData = UIImageJPEGRepresentation(imageUI, compression);
+                extension = @"JPG";
+            }else{
+                newImageData = imageData;
+            }
+            NSNumber *size=[NSNumber numberWithLong:newImageData.length];
+            
+            NSString *fullpath=[NSString stringWithFormat:@"%@/%@.%@", dmcPickerPath,[[NSProcessInfo processInfo] globallyUniqueString], extension];
 
             NSError *error = nil;
-            if (![imageData writeToFile:fullpath options:NSAtomicWrite error:&error]) {
+            if (![newImageData writeToFile:fullpath options:NSAtomicWrite error:&error]) {
                 NSLog(@"%@", [error localizedDescription]);
                 [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[error localizedDescription]] callbackId:callbackId];
             } else {
-                
                 NSDictionary *dict=[NSDictionary dictionaryWithObjectsAndKeys:fullpath,@"path",[[NSURL fileURLWithPath:fullpath] absoluteString],@"uri",@"image",@"mediaType",size,@"size",[NSNumber numberWithInt:index],@"index", nil];
                 [aListArray addObject:dict];
                 if([aListArray count]==[selectArray count]){
@@ -142,10 +159,6 @@
 -(void)videoToSandbox:(PHAsset *)asset dmcPickerPath:(NSString*)dmcPickerPath aListArray:(NSMutableArray*)aListArray selectArray:(NSMutableArray*)selectArray index:(int)index{
     PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
     options.version = PHVideoRequestOptionsVersionOriginal;
-
-    NSString *filename = [asset valueForKey:@"filename"];
-                       
-    NSString *fullpath=[NSString stringWithFormat:@"%@/%@", dmcPickerPath,filename];
     
     NSNumber *size = [self getVideoAssetSize:asset];
                     
@@ -394,7 +407,7 @@
             [options setObject:size forKey:@"size"];
             [options setObject:filename forKey:@"name"];
             [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:options] callbackId:callbackId];
-        }        
+        }
         
     }else{
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:options] callbackId:callbackId];
