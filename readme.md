@@ -1,5 +1,6 @@
-Cloned from https://github.com/OutSystems/cordova-plugin-local-notifications as a stable version for testing and subsequently production use
+Cloned from https://github.com/OutSystemsExperts/cordova-plugin-mediaPicker as a stable version for testing and subsequently production use
 
+To be removed when OutsystemsExperts published a forge component with the corrected version.
 
 # MediaPicker v:2.4.3
 
