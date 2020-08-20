@@ -1,3 +1,6 @@
+Cloned from https://github.com/OutSystems/cordova-plugin-local-notifications as a stable version for testing and subsequently production use
+
+
 # MediaPicker v:2.4.3
 
 android ios mediaPicker support  selection of multiple image and video gif  (Support Chinese, English, Spanish, Portuguese, and Turkish)</br>
